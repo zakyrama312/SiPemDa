@@ -1,5 +1,5 @@
 @php
-    use App\Helpers\FormatHelper;
+use App\Helpers\FormatHelper;
 @endphp
 <main id="main" class="main">
 
@@ -16,10 +16,10 @@
                         <h3><strong>{{ $totalKendaraan }} Kendaraan</strong></h3>
                         <ul class="list-group overflow-auto" style="max-height: 300px;">
                             @foreach ($jumlahKendaraanPerJenis as $jenis => $total)
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ ucfirst($jenis) }}
-                                    <span class="badge bg-primary rounded-pill">{{ $total }}</span>
-                                </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ ucfirst($jenis) }}
+                                <span class="badge bg-primary rounded-pill">{{ $total }}</span>
+                            </li>
                             @endforeach
 
                         </ul>
@@ -36,14 +36,14 @@
                         <!-- List group With Scrollable -->
                         <ul class="list-group overflow-auto" style="max-height: 300px;">
                             @foreach ($kendaraanData as $kendaraan)
-                                @if ($kendaraan->alert != 'alert-success' && $kendaraan->status_pemeliharaan != '❓ Tidak Ada Jadwal')
-                                    <a href="pemeliharaan/{{ $kendaraan->slug }}/show">
-                                        <div class="alert {{ $kendaraan->alert }} alert-dismissible fade show" role="alert">
-                                            <i class="bi {{ $kendaraan->icon }} me-1"></i>
-                                            {!! $kendaraan->status_pemeliharaan !!}
-                                        </div>
-                                    </a>
-                                @endif
+                            @if ($kendaraan->alert != 'alert-success' && $kendaraan->status_pemeliharaan != '❓ Tidak Ada Jadwal')
+                            <a href="pemeliharaan/{{ $kendaraan->slug }}/show">
+                                <div class="alert {{ $kendaraan->alert }} alert-dismissible fade show" role="alert">
+                                    <i class="bi {{ $kendaraan->icon }} me-1"></i>
+                                    {!! $kendaraan->status_pemeliharaan !!}
+                                </div>
+                            </a>
+                            @endif
 
                             @endforeach
 
@@ -61,14 +61,14 @@
                         <!-- List group With Scrollable -->
                         <ul class="list-group overflow-auto" style="max-height: 300px;">
                             @foreach ($pajakTerbaru as $index => $p)
-                                @if ($p['status'] != 'safe')
-                                    <a href="{{ $p['route'] }}{{ $p['slug'] }}/show">
-                                        <div class="alert alert-{{ $p['status'] }} alert-dismissible fade show" role="alert">
-                                            <i class="bi {{ $p['icon'] }} me-1"></i>
-                                            {!! $p['peringatan'] !!}
-                                        </div>
-                                    </a>
-                                @endif
+                            @if ($p['status'] != 'safe')
+                            <a href="{{ $p['route'] }}{{ $p['slug'] }}/show">
+                                <div class="alert alert-{{ $p['status'] }} alert-dismissible fade show" role="alert">
+                                    <i class="bi {{ $p['icon'] }} me-1"></i>
+                                    {!! $p['peringatan'] !!}
+                                </div>
+                            </a>
+                            @endif
 
                             @endforeach
 
@@ -126,10 +126,10 @@
                         <small class="mt-4">Sisa Saldo</small>
                         <ul class="list-group overflow-auto mt-3" style="max-height: 350px;">
                             @foreach ($rekening as $r)
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ $r->nama_rekening }}
-                                    <span>{{ FormatHelper::formatRupiah($r->saldo_akhir) }}</span>
-                                </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ $r->nama_rekening }}
+                                <span>{{ FormatHelper::formatRupiah($r->saldo_akhir) }}</span>
+                            </li>
                             @endforeach
                         </ul>
                     </div>
@@ -149,7 +149,7 @@
 </main>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", function() {
         fetch('/chart-data')
             .then(response => response.json())
             .then(data => {

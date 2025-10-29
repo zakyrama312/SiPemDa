@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
+
     public function index()
     {
         $role = Auth::user();
@@ -28,22 +29,53 @@ class DashboardController extends Controller
 
             $totalPengeluaran = $totalBiayaPemeliharaan + $totalBiayaBBM + $totalBiayaPajakPlat + $totalBiayaPajakTahunan;
             // Ambil semua kendaraan yang perlu pemeliharaan (tanggal berikutnya lewat/today)
-            $today = Carbon::today();
+            // $today = Carbon::today();
             //  yang sudah jatuh tempo
-            $threshold = $today->copy()->addDays(30); // ambil yang akan jatuh tempo dalam 30 hari
+            // $threshold = $today->copy()->addDays(30); // ambil yang akan jatuh tempo dalam 30 hari
             // total kendaraan yang perlu pemeliharaan
+            // $kendaraanPerluPemeliharaan = Pemeliharaan::with('kendaraan')
+            //     ->whereDate('tanggal_pemeliharaan_berikutnya', '<=', $threshold)
+            //     ->get();
+            // // Hitung total kendaraan unik yang perlu pemeliharaan
+            // $totalKendaraanPerluPemeliharaan = $kendaraanPerluPemeliharaan->pluck('id_kendaraan')->unique()->count();
+            $today = Carbon::today();
+            $threshold = $today->copy()->addDays(7); // misal 7 hari ke depan
+
             $kendaraanPerluPemeliharaan = Pemeliharaan::with('kendaraan')
-                ->whereDate('tanggal_pemeliharaan_berikutnya', '<=', $threshold)
+                ->whereHas('kendaraan') // <--- pastiin kendaraan-nya ada
+                ->whereNotNull('tanggal_pemeliharaan_berikutnya')
+                ->select('id_kendaraan', DB::raw('MAX(tanggal_pemeliharaan_berikutnya) as terakhir'))
+                ->groupBy('id_kendaraan')
+                ->havingRaw('(MAX(tanggal_pemeliharaan_berikutnya) < ?) OR (MAX(tanggal_pemeliharaan_berikutnya) BETWEEN ? AND ?)', [
+                    $today,
+                    $today,
+                    $threshold,
+                ])
                 ->get();
-            // Hitung total kendaraan unik yang perlu pemeliharaan
-            $totalKendaraanPerluPemeliharaan = $kendaraanPerluPemeliharaan->pluck('id_kendaraan')->unique()->count();
+
+            $totalKendaraanPerluPemeliharaan = $kendaraanPerluPemeliharaan->count();
+
+
 
             // Ambil pajak yang masa berlakunya dalam 30 hari ke depan atau sudah lewat
-            $pajakPerluDiperpanjang = Pajak::with('kendaraan') // pastikan ada relasi kendaraan()
-                ->whereNotNull('masa_berlaku')
-                ->whereDate('masa_berlaku', '<=', $threshold)
+            // $pajakPerluDiperpanjang = Pajak::with('kendaraan') // pastikan ada relasi kendaraan()
+            //     ->whereNotNull('masa_berlaku')
+            //     ->whereDate('masa_berlaku', '<=', $threshold)
+            //     ->get();
+            // $totalKendaraanPerluBayarPajak = $pajakPerluDiperpanjang->pluck('id_kendaraan')->unique()->count();
+            $pajakPerluDiperpanjang = Pajak::with('kendaraan')
+                ->select('id_kendaraan', 'jenis_pajak', DB::raw('MAX(masa_berlaku) as terakhir'))
+                ->groupBy('id_kendaraan', 'jenis_pajak')
+                ->havingRaw('MAX(masa_berlaku) <= ?', [$threshold])
                 ->get();
-            $totalKendaraanPerluBayarPajak = $pajakPerluDiperpanjang->pluck('id_kendaraan')->unique()->count();
+
+            $totalKendaraanPerluBayarPajak = $pajakPerluDiperpanjang
+                ->pluck('id_kendaraan')
+                ->unique()
+                ->count();
+
+
+
 
             $totalKendaraan = Kendaraan::count(); // Hitung total kendaraan
             $jumlahKendaraanPerJenis = Kendaraan::selectRaw('jenis, COUNT(*) as total')
@@ -117,38 +149,44 @@ class DashboardController extends Controller
                 ->withSum('pemeliharaan', 'biaya') // Hitung total biaya
                 ->get();
 
-            // Tambahkan status berdasarkan tanggal pemeliharaan berikutnya
-            $kendaraanData->transform(function ($kendaraan) {
+            // Ambil semua ID kendaraan yang perlu pemeliharaan (dari query count)
+            $idKendaraanPerluPemeliharaan = $kendaraanPerluPemeliharaan->pluck('id_kendaraan')->toArray();
+
+            $kendaraanData->transform(function ($kendaraan) use ($idKendaraanPerluPemeliharaan) {
                 $tanggalBerikutnya = optional($kendaraan->pemeliharaan->first())->tanggal_pemeliharaan_berikutnya;
+                $hariIni = now();
 
-                if ($tanggalBerikutnya) {
-                    $hariIni = now();
-                    $batasPeringatan = (now()->addDays(5));
-                    $masaBerlaku = Carbon::parse($tanggalBerikutnya);
-                    $hariSisa = ceil(now()->diffInDays($masaBerlaku, false)); // Menghitung selisih hari dengan negatif jika terlambat
+                if (in_array($kendaraan->id, $idKendaraanPerluPemeliharaan)) {
+                    // Kalau memang termasuk dalam list perlu pemeliharaan
+                    if ($tanggalBerikutnya) {
+                        $masaBerlaku = Carbon::parse($tanggalBerikutnya);
+                        $hariSisa = ceil($hariIni->diffInDays($masaBerlaku, false));
 
-                    if ($hariSisa < 0) {
                         $no_plat = $kendaraan->no_polisi . '-' . $kendaraan->model;
-                        $kendaraan->status_pemeliharaan = "<strong>$no_plat</strong> Sudah lewat jatuh tempo pemeliharaan <strong>" . abs($hariSisa) . " hari</strong>";
-                        $kendaraan->icon = "bi-exclamation-octagon";
-                        $kendaraan->alert = "alert-danger";
-                    } elseif ($hariSisa <= 5) {
-                        $no_plat = $kendaraan->no_polisi . '-' . $kendaraan->model;
-                        $kendaraan->status_pemeliharaan = "<strong>$no_plat $hariSisa hari</strong> lagi segera servis";
+
+                        if ($hariSisa < 0) {
+                            $kendaraan->status_pemeliharaan = "<strong>$no_plat</strong> Sudah lewat jatuh tempo <strong>" . abs($hariSisa) . " hari</strong>";
+                            $kendaraan->icon = "bi-exclamation-octagon";
+                            $kendaraan->alert = "alert-danger";
+                        } elseif ($hariSisa <= 7) {
+                            $kendaraan->status_pemeliharaan = "<strong>$no_plat $hariSisa hari</strong> lagi segera servis";
+                            $kendaraan->icon = "bi-exclamation-triangle";
+                            $kendaraan->alert = "alert-warning";
+                        }
+                    } else {
+                        $kendaraan->status_pemeliharaan = "<strong>{$kendaraan->no_polisi}-{$kendaraan->model}</strong> Belum ada jadwal servis";
                         $kendaraan->icon = "bi-exclamation-triangle";
                         $kendaraan->alert = "alert-warning";
-                    } else {
-                        $no_plat = $kendaraan->no_polisi . '-' . $kendaraan->model;
-                        $kendaraan->status_pemeliharaan = "✅ Aman";
-                        $kendaraan->icon = "bi-exclamation-triangle";
-                        $kendaraan->alert = "alert-success";
                     }
                 } else {
-                    $kendaraan->status_pemeliharaan = "❓ Tidak Ada Jadwal";
+                    // Yang aman
+                    $kendaraan->status_pemeliharaan = "✅ Aman";
+                    $kendaraan->alert = "alert-success";
                 }
 
                 return $kendaraan;
             });
+
 
 
             return view('dashboard.index', compact(
