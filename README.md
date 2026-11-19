@@ -17,11 +17,11 @@
 
 ### Halaman Login
 
-![Halaman Login SiPemDa](docs/login.png)
+![Halaman Login SiPemDa](docs/img-login.png)
 
 ### Dashboard
 
-![Dashboard SiPemDa](docs/dashboard.png)
+![Dashboard SiPemDa](docs/img-dashboard.png)
 
 ## Teknologi
 
